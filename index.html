@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+
+<html lang="hr">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>AI Gambling Bot</title>
+
+<style>
+
+*{box-sizing:border-box}
+
+body{margin:0;background:#090e18;color:#fff;font-family:Arial;padding:18px}
+
+main{max-width:600px;margin:auto}
+
+header{text-align:center;padding:20px}
+
+h1{color:#55e6a5}
+
+.card{background:#151e2e;border:1px solid #293951;border-radius:15px;padding:18px;margin:14px 0}
+
+.muted{color:#94a5bd;font-size:13px}
+
+.balance{font-size:38px;color:#55e6a5;font-weight:bold;margin:12px 0}
+
+input{width:100%;padding:12px;margin:7px 0;background:#0b1422;border:1px solid #34445e;color:white;border-radius:8px}
+
+button{background:#55e6a5;color:#07130e;border:0;padding:12px;border-radius:8px;font-weight:bold;margin:5px 2px}
+
+.item{padding:12px 0;border-bottom:1px solid #293951;font-size:14px}
+
+.green{color:#55e6a5}.red{color:#ff687c}
+
+</style>
+
+</head>
+
+<body>
+
+<main>
+
+<header>
+
+<h1>AI GAMBLING BOT</h1>
+
+<div class="muted">AUTOMATED GAMBLING SYSTEM</div>
+
+</header>
+
+<div class="card">
+
+<div class="muted">ACCOUNT BALANCE</div>
+
+<div class="balance" id="balance">€0.00</div>
+
+<div class="muted">Total result: <span id="profit">€0.00</span></div>
+
+</div>
+
+<div class="card">
+
+<h3>AI SYSTEM</h3>
+
+<div class="green">● SYSTEM ACTIVE</div>
+
+<p class="muted">Automatic game simulation running</p>
+
+<div class="item">Games played: <b id="games">0</b></div>
+
+<div class="item">Last result: <b id="last">Waiting...</b></div>
+
+</div>
+
+<div class="card">
+
+<h3>GAME HISTORY</h3>
+
+<div id="history">No games yet.</div>
+
+</div>
+
+<div class="card">
+
+<h3>TRANSACTIONS</h3>
+
+<div id="transactions">No transactions yet.</div>
+
+</div>
+
+<div class="card">
+
+<h3>WITHDRAWAL REQUEST</h3>
+
+<input id="withdrawAmount" type="number" placeholder="Amount (€)">
+
+<input id="btcAddress" placeholder="BTC address">
+
+<button onclick="withdraw()">SUBMIT REQUEST</button>
+
+<div id="message" class="muted"></div>
+
+</div>
+
+<div class="card">
+
+<h3>ADMIN PANEL</h3>
+
+<div class="muted">Virtual account management</div>
+
+<input id="adminAmount" type="number" placeholder="Amount (€)">
+
+<button onclick="addBalance()">ADD BALANCE</button>
+
+<button onclick="removeBalance()">REMOVE BALANCE</button>
+
+<input id="txName" placeholder="Transaction name">
+
+<input id="txAmount" type="number" placeholder="Transaction amount">
+
+<button onclick="addTransaction()">ADD TRANSACTION</button>
+
+<h3>WITHDRAWAL REQUESTS</h3>
+
+<div id="requests"></div>
+
+</div>
+
+<p class="muted" style="text-align:center">
+
+Virtual simulation only. No real gambling, money transfers or withdrawals.
+
+</p>
+
+</main>
+
+<script>
+
+let data=JSON.parse(localStorage.getItem("aigamble"))||{
+
+balance:0,profit:0,games:0,history:[],transactions:[],requests:[]
+
+};
+
+function save(){
+
+localStorage.setItem("aigamble",JSON.stringify(data));
+
+render();
+
+}
+
+function euro(n){return "€"+Number(n).toFixed(2)}
+
+function render(){
+
+balance.textContent=euro(data.balance);
+
+profit.textContent=euro(data.profit);
+
+games.textContent=data.games;
+
+history.innerHTML=data.history.slice(-15).reverse().map(x=>
+
+`<div class="item">${x.time}<br><b class="${x.result>=0?'green':'red'}">${x.result>=0?'+':''}${euro(x.result)}</b></div>`
+
+).join("")||"No games yet.";
+
+transactions.innerHTML=data.transactions.slice(-20).reverse().map(x=>
+
+`<div class="item">${x.name}<br>${euro(x.amount)} <span class="muted">${x.time}</span></div>`
+
+).join("")||"No transactions yet.";
+
+requests.innerHTML=data.requests.map((x,i)=>`
+
+<div class="item">${euro(x.amount)}<br><small>${x.address}</small><br>
+
+${x.status}
+
+${x.status==="PENDING"?`
+
+<button onclick="approve(${i})">APPROVE</button>
+
+<button onclick="reject(${i})">REJECT</button>`:""}
+
+</div>`).join("")||"No requests.";
+
+}
+
+function addBalance(){
+
+let n=Number(adminAmount.value);
+
+if(n<=0)return;
+
+data.balance+=n;
+
+data.transactions.push({name:"Admin balance adjustment",amount:n,time:new Date().toLocaleString()});
+
+adminAmount.value="";
+
+save();
+
+}
+
+function removeBalance(){
+
+let n=Number(adminAmount.value);
+
+if(n<=0||n>data.balance)return;
+
+data.balance-=n;
+
+data.transactions.push({name:"Admin balance adjustment",amount:-n,time:new Date().toLocaleString()});
+
+adminAmount.value="";
+
+save();
+
+}
+
+function addTransaction(){
+
+let name=txName.value;
+
+let n=Number(txAmount.value);
+
+if(!name||!n)return;
+
+data.transactions.push({name,amount:n,time:new Date().toLocaleString()});
+
+txName.value="";
+
+txAmount.value="";
+
+save();
+
+}
+
+function game(){
+
+let percent=Math.random()<0.72?
+
+Math.random()*7.15+0.01:
+
+-(Math.random()*2.15+0.01);
+
+let result=data.balance*percent/100;
+
+data.balance=Math.max(0,data.balance+result);
+
+data.profit+=result;
+
+data.games++;
+
+let entry={result,time:new Date().toLocaleTimeString()};
+
+data.history.push(entry);
+
+data.transactions.push({
+
+name:"Automatic AI game",
+
+amount:result,
+
+time:entry.time
+
+});
+
+last.textContent=(result>=0?"+":"")+euro(result);
+
+last.className=result>=0?"green":"red";
+
+save();
+
+}
+
+function withdraw(){
+
+let n=Number(withdrawAmount.value);
+
+let address=btcAddress.value.trim();
+
+let pending=data.requests.filter(x=>x.status==="PENDING").reduce((s,x)=>s+x.amount,0);
+
+if(!address||n<=0||n>data.balance-pending){
+
+message.textContent="Invalid request.";
+
+return;
+
+}
+
+data.requests.push({amount:n,address,status:"PENDING"});
+
+message.textContent="Virtual request submitted.";
+
+save();
+
+}
+
+function approve(i){
+
+let r=data.requests[i];
+
+if(r.status!=="PENDING"||r.amount>data.balance)return;
+
+data.balance-=r.amount;
+
+r.status="APPROVED - VIRTUAL";
+
+data.transactions.push({name:"Virtual withdrawal",amount:-r.amount,time:new Date().toLocaleString()});
+
+save();
+
+}
+
+function reject(i){
+
+data.requests[i].status="REJECTED";
+
+save();
+
+}
+
+render();
+
+setInterval(game,4000);
+
+</script>
+
+</body>
+
+</html>
